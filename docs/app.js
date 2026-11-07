@@ -448,6 +448,16 @@ $('newGame').onclick = async () => {
 
 // ---------- Boot ----------
 
+// One-tap setup link: ...#key=sk-ant-... saves the key on this phone, then
+// wipes it from the address bar. The part after # is never sent to the server.
+{
+  const m = location.hash.match(/(?:^#|&)key=([^&]+)/)
+  if (m) {
+    const k = decodeURIComponent(m[1]).trim()
+    if (/^sk-ant-/.test(k)) settings.apiKey = k
+    history.replaceState(null, '', location.pathname + location.search)
+  }
+}
 renderKey()
 renderGames()
 renderVoices()
