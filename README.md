@@ -1,6 +1,82 @@
 # Drive Companion
 
-Voice switching between Spotify and Audible on an 11-hour cross-country drive.
+Two things for an 11-hour cross-country drive on Android + Android Auto:
+
+1. **[Text adventure co-pilot](#text-adventure-co-pilot)**: talk, and an AI co-pilot plays a text adventure for you and reads it aloud.
+2. **[Spotify and Audible by voice](#spotify-and-audible-by-voice)**: no app needed.
+
+---
+
+# Text adventure co-pilot
+
+A web app on your phone. You talk; Claude Haiku turns what you say into game commands, plays them, and reads the story aloud through the car speakers. Ask it to repeat or explain anything. It runs real modern parser games (Glulx and Z-code: `.gblorb`, `.ulx`, `.zblorb`, `.z5`, `.z8`) and saves after every turn.
+
+**App:** https://geneticmarauder.github.io/Drive-companion/ (after the one-time setup below)
+
+## One-time setup
+
+1. **Turn on GitHub Pages** (2 minutes, can be done from the phone): repo **Settings → Pages → Build and deployment → Deploy from a branch**, branch `ccr-d7be69ae-n9k8hi`, folder **`/docs`**, then **Save**. The site goes live a minute or two later at the address above.
+2. **On the phone, open that address in Chrome**, then use the ⋮ menu and choose **Add to Home screen**. It now opens like an app, and it works offline once it has loaded.
+3. **Paste your Anthropic API key** into the box and tap **Save key**. It's stored only in Chrome on that phone and is sent only to Anthropic. Also keep a copy in Google Password Manager or your password app.
+4. In the [Anthropic Console](https://console.anthropic.com/), set a **monthly spend limit** (for example $10) as a safety net.
+
+## Driveway test (10 minutes, do this before the trip)
+
+With the phone plugged in and Android Auto connected:
+
+1. Open the app, tap **Lantern Hill**, then tap the big circle.
+2. Check you **hear the story through the car speakers**. If it plays from the phone instead, open the car's audio source / Android Auto media and pick the phone.
+3. Say "let's walk up the hill" and check that **it hears you** (the circle turns green while listening, and your words appear under it).
+4. Finish the 5-minute game. If that works, the real games will too.
+
+## Adding real games
+
+The home screen has links to IFDB for good modern picks: **Counterfeit Monkey** (#1 on IFDB's all-time ranking, long enough for several driving days), **Dr Ludwig and the Devil** (2023 IFComp winner) and **THE BAT** (2024 IFComp winner). On a game's IFDB page, download the story file, then tap **Add a game file** in the app. Do this on Wi-Fi before you leave.
+
+## Talking to it
+
+Just talk naturally: "let's check out that door", "take everything", "go back to the office", "what am I carrying?", "you play for a while". It ignores chatter that isn't meant for it ("turn left here").
+
+These work instantly, without using the AI:
+
+| Say | What happens |
+|---|---|
+| "Repeat" / "say that again" | Re-reads the last thing it said |
+| "Pause" / "hold on" | Stops responding until you say "resume" |
+| "Resume" / "I'm back" | Picks back up |
+| "Slower" / "faster" | Changes the reading speed |
+| "How much have we spent?" | Says this session's AI cost |
+
+Tap the circle to skip what it's reading, or to pause.
+
+## Cost and battery
+
+- **Cost:** about **$0.0003 per turn**, which is roughly **50 cents for an 11-hour day** (measured in testing on Claude Haiku 5.5). It's billed to your API account, separately from any Claude subscription. The screen shows the running cost.
+- **Battery:** the phone's screen must stay on with Chrome in front (the app keeps it awake), so **keep the phone on the charger**. Speech recognition and reading aloud use the phone's free built-in engines.
+- **No signal:** the app still opens and the game still runs. Your words go straight to the game's parser instead of through the AI, and it says so once. Speech recognition itself may need a signal on some phones.
+
+## Good to know
+
+- Android may beep each time it starts listening. That's the phone's speech recognizer, and the app can't turn it off.
+- Keep the app on the phone screen. If you switch apps or lock the phone, Chrome stops listening; come back and tap the circle.
+- Everything is saved after each turn. **‹ Games → Play** later says "Tap to continue" and picks up where you left off.
+- Keep it audio-only and say "pause" whenever the road needs your full attention.
+
+## For developers
+
+```bash
+npm install
+npm run build          # copy interpreters + bundle the SDK into docs/vendor, compile the test game
+npm test               # engine + agent tests (live Claude test runs if ANTHROPIC_API_KEY is set)
+node tests/browser.e2e.mjs   # headless Chromium end-to-end test of the real page
+npm run serve          # local server at http://localhost:8080
+```
+
+`docs/engine.js` runs the game with the [Emglken](https://github.com/curiousdannii/emglken) WebAssembly interpreters (Git for Glulx, Bocfel for Z-code) behind a headless GlkOte. `docs/agent.js` is the Claude Haiku tool-use loop with a direct-mode fallback. `docs/voice.js` handles the Web Speech API in and out. No server: the API key stays on the phone.
+
+---
+
+# Spotify and Audible by voice
 
 **Setup:** Android phone + Android Auto. The "assistant" is the voice assistant Android Auto already has (Gemini, which replaced Google Assistant; it still answers to "Hey Google"). It's free, it doesn't use any Claude quota, and you don't need a custom app or the MacBook.
 

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Drive Companion</title>
+<meta name="description" content="A voice co-pilot that plays text adventures for you while you drive.">
+<meta name="theme-color" content="#0d1117">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --line: #30363d; --text: #e6edf3; --muted: #8b949e;
+    --accent: #f0b429; --listen: #3fb950; --think: #58a6ff; --speak: #f0b429; --pause: #8b949e; --bad: #f85149;
+  }
+  :root[data-theme="light"] {
+    --bg: #ffffff; --panel: #f6f8fa; --line: #d0d7de; --text: #1f2328; --muted: #59636e;
+    --accent: #9a6700; --listen: #1a7f37; --think: #0969da; --speak: #9a6700; --pause: #59636e; --bad: #cf222e;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 18px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; min-height: 100dvh; }
+  main { max-width: 640px; margin: 0 auto; padding: 16px 16px calc(24px + env(safe-area-inset-bottom)); }
+  h1 { font-size: 1.5rem; margin: 8px 0 4px; letter-spacing: .01em; }
+  h2 { font-size: 1.1rem; margin: 24px 0 8px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
+  p { margin: 8px 0; }
+  .muted { color: var(--muted); font-size: .9rem; }
+  a { color: var(--think); }
+  .hidden { display: none !important; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 12px 0; }
+  button, .btn {
+    font: inherit; font-weight: 600; color: var(--text); background: var(--panel); border: 1px solid var(--line);
+    border-radius: 12px; padding: 14px 18px; min-height: 52px; cursor: pointer; text-decoration: none; display: inline-flex;
+    align-items: center; justify-content: center; gap: 8px;
+  }
+  button.primary { background: var(--accent); color: #111; border-color: transparent; }
+  button.danger { color: var(--bad); }
+  button:disabled { opacity: .5; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .row > * { flex: 1 1 auto; }
+  input[type=password], input[type=text], select {
+    font: inherit; width: 100%; padding: 14px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--text); min-height: 52px;
+  }
+  label { display: block; font-weight: 600; margin: 12px 0 6px; }
+  .game { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .game .title { font-weight: 700; }
+  .game .meta { color: var(--muted); font-size: .85rem; }
+  .game button { flex: 0 0 auto; }
+  ul.recs { padding-left: 20px; margin: 8px 0; }
+  ul.recs li { margin: 8px 0; }
+
+  /* Play screen */
+  #play { display: flex; flex-direction: column; min-height: calc(100dvh - 40px); }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+  .topbar button { min-height: 44px; padding: 8px 14px; }
+  #orb {
+    margin: 20px auto 12px; width: min(62vw, 260px); aspect-ratio: 1; border-radius: 50%;
+    border: 6px solid var(--pause); display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: 1.4rem; font-weight: 800; letter-spacing: .02em; cursor: pointer; user-select: none;
+    background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--pause) 22%, transparent), transparent 70%);
+    transition: border-color .2s, background .2s;
+  }
+  #orb[data-state="listening"] { border-color: var(--listen); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--listen) 28%, transparent), transparent 70%); animation: pulse 1.6s ease-in-out infinite; }
+  #orb[data-state="thinking"] { border-color: var(--think); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--think) 28%, transparent), transparent 70%); }
+  #orb[data-state="speaking"] { border-color: var(--speak); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--speak) 28%, transparent), transparent 70%); }
+  #orb[data-state="error"] { border-color: var(--bad); }
+  @keyframes pulse { 50% { transform: scale(1.03); } }
+  @media (prefers-reduced-motion: reduce) { #orb { animation: none !important; } }
+  #heard { text-align: center; color: var(--muted); min-height: 1.5em; font-style: italic; }
+  #said { font-size: 1.15rem; white-space: pre-wrap; flex: 1; overflow-y: auto; max-height: 38dvh; }
+  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+  #typed { margin-top: 10px; }
+  details { margin-top: 12px; }
+  summary { cursor: pointer; color: var(--muted); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
+  #log { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: var(--muted); max-height: 40dvh; overflow-y: auto; }
+  .status-line { font-size: .85rem; color: var(--muted); text-align: center; }
+</style>
+</head>
+<body>
+<main>
+
+  <!-- Setup / library -->
+  <section id="home">
+    <h1>Drive Companion</h1>
+    <p class="muted">Talk, and your co-pilot plays the text adventure for you and reads it aloud.</p>
+
+    <div class="card" id="keyCard">
+      <div id="keyMissing">
+        <label for="keyInput">Anthropic API key</label>
+        <input id="keyInput" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-...">
+        <p class="muted">Saved only in this browser on this phone. It's sent only to Anthropic, never to this website.</p>
+        <div class="row"><button class="primary" id="saveKey">Save key</button></div>
+      </div>
+      <div id="keyPresent" class="hidden">
+        <div class="row">
+          <span>API key saved on this phone <span class="muted" id="keyHint"></span></span>
+          <button id="removeKey" class="danger" style="flex:0 0 auto">Remove</button>
+        </div>
+        <p class="muted" id="totalCost"></p>
+      </div>
+    </div>
+
+    <h2>Your games</h2>
+    <div id="gameList"></div>
+    <div class="row">
+      <button id="addGame">Add a game file</button>
+      <input id="filePicker" type="file" class="hidden">
+    </div>
+
+    <h2>Good modern picks</h2>
+    <div class="card">
+      <ul class="recs">
+        <li><a href="https://ifdb.org/search?searchfor=Counterfeit+Monkey" target="_blank" rel="noopener">Counterfeit Monkey</a> (2012): #1 on IFDB's all-time ranking. It's long, so it suits several driving days.</li>
+        <li><a href="https://ifdb.org/search?searchfor=Dr+Ludwig+and+the+Devil" target="_blank" rel="noopener">Dr Ludwig and the Devil</a> (2023): IFComp winner.</li>
+        <li><a href="https://ifdb.org/search?searchfor=THE+BAT+Chandler+Groover" target="_blank" rel="noopener">THE BAT</a> (2024): IFComp winner.</li>
+      </ul>
+      <p class="muted">On the game's IFDB page, download the story file (ending in .gblorb, .ulx, .zblorb, .z5 or .z8), then tap <b>Add a game file</b>. Games that only play in a web page won't work here.</p>
+    </div>
+
+    <h2>Voice</h2>
+    <div class="card">
+      <label for="voiceSelect">Reading voice</label>
+      <select id="voiceSelect"></select>
+      <label for="rateSelect">Reading speed</label>
+      <select id="rateSelect">
+        <option value="0.85">Slower</option>
+        <option value="1">Normal</option>
+        <option value="1.15">Faster</option>
+        <option value="1.3">Fastest</option>
+      </select>
+    </div>
+    <p class="muted" id="support"></p>
+  </section>
+
+  <!-- Play -->
+  <section id="play" class="hidden">
+    <div class="topbar">
+      <button id="back">‹ Games</button>
+      <span class="muted" id="cost"></span>
+    </div>
+    <div class="status-line" id="statusLine"></div>
+    <div id="orb" role="button" tabindex="0" data-state="idle">Tap to start</div>
+    <div id="heard" aria-live="polite"></div>
+    <div id="said" aria-live="polite"></div>
+    <div class="controls">
+      <button id="pauseBtn">Pause</button>
+      <button id="repeatBtn">Repeat</button>
+    </div>
+    <form id="typedForm" class="row" autocomplete="off">
+      <input id="typed" type="text" placeholder="Or type to the co-pilot (for passengers)" enterkeyhint="send">
+    </form>
+    <details>
+      <summary>Game log</summary>
+      <div id="log"></div>
+      <div class="row" style="margin-top:10px"><button id="newGame" class="danger">Start this game over</button></div>
+    </details>
+  </section>
+
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

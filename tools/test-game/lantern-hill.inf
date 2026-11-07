@@ -1,0 +1,120 @@
+! Lantern Hill - a tiny original adventure bundled with Drive Companion.
+! It exists so the app is playable out of the box and so the engine and
+! agent can be tested end to end. Compile with: node tools/compile-test-game.mjs
+
+Constant Story "Lantern Hill";
+Constant Headline "^A very short roadside mystery.^";
+Constant MAX_SCORE 3;
+
+Include "Parser";
+Include "VerbLib";
+
+[ Initialise;
+    location = Gas_Station;
+    "^^Your car coughs, shudders, and rolls to a stop beside a shuttered
+    gas station at the foot of a hill. Somewhere above, a single lantern is
+    burning. The dashboard clock reads 11:58 PM.^";
+];
+
+Object Gas_Station "Gas Station Forecourt"
+  with description
+        "Two rusted pumps stand under a flickering canopy. Your stalled car
+        waits by the road. A dirt path climbs north up the hill, and the
+        station's office is to the east.",
+    n_to Hill_Path,
+    e_to Office_Door,
+  has light;
+
+Object -> car "car"
+  with name 'car' 'my' 'vehicle' 'sedan', article "your",
+    description [;
+        if (fuel_can in self) "Fuelled up and ready. You could drive away now.";
+        "Bone dry. The fuel gauge needle lies flat on E.";
+    ],
+    before [;
+        Enter, Drive:
+            if (fuel_can notin self) "It won't start. You need fuel first.";
+            deadflag = 2;
+            score = MAX_SCORE;
+            "You climb in, turn the key, and the engine roars. In the mirror,
+            the lantern on the hill blinks twice, as if waving goodbye.";
+    ],
+  has static container open;
+
+Object -> pumps "pumps"
+  with name 'pump' 'pumps' 'gas' 'canopy',
+    description "Padlocked, and dry since long before tonight.",
+  has scenery pluralname;
+
+Object Office_Door "office door"
+  with name 'office' 'door',
+    description "A steel door with a keyhole and a hand-painted sign: BACK SOON.",
+    door_to [; if (self in Gas_Station) return Office; return Gas_Station; ],
+    door_dir [; if (self in Gas_Station) return e_to; return w_to; ],
+    found_in Gas_Station Office,
+    with_key brass_key,
+  has static door openable lockable locked;
+
+Object Office "Station Office"
+  with description
+        "Dust, a calendar from 1987, and a smell of old motor oil. The
+        forecourt is back to the west.",
+    w_to Office_Door,
+  has light;
+
+Object -> fuel_can "red fuel can"
+  with name 'red' 'fuel' 'can' 'gas' 'gasoline' 'jerrycan',
+    description "A red jerrycan, sloshing and nearly full.",
+    after [;
+        Take: if (self hasnt general) { give self general; score++; }
+        Insert, PutOn:
+            if (second == car) "You pour the fuel into the tank. The smell of gasoline fills the night air.";
+    ];
+
+Object Hill_Path "Hill Path"
+  with description
+        "The path is steep and stony. Crickets go quiet as you pass. The
+        lantern glows from the hilltop just north. The gas station is back
+        to the south.",
+    n_to Hilltop,
+    s_to Gas_Station,
+  has light;
+
+Object Hilltop "Hilltop"
+  with description
+        "A flat crown of grass, open to the stars. An iron post holds the
+        lantern you saw from the road. The path leads back down to the south.",
+    s_to Hill_Path,
+  has light;
+
+Object -> lantern "lantern"
+  with name 'lantern' 'lamp' 'light' 'post' 'iron',
+    description [;
+        if (brass_key has general) "The lantern burns steadily. Its little hatch hangs open.";
+        "A brass ship's lantern burning without any visible fuel. There is a
+        small hatch in its base.";
+    ],
+    before [;
+        Open, Search:
+            if (brass_key has general) "The hatch is already open. It's empty now.";
+            give brass_key general;
+            move brass_key to player;
+            score++;
+            "You open the little hatch. Inside, warm to the touch, is a brass
+            key. You take it.";
+        Take: "It's bolted to the post.";
+    ],
+  has static;
+
+Object brass_key "brass key"
+  with name 'brass' 'key',
+    description "Small, warm, and stamped OFFICE.";
+
+[ DriveSub; if (car in location) <<Drive car>>; "You need a vehicle for that."; ];
+
+Include "Grammar";
+
+Verb 'drive' 'start'
+    *                   -> Drive
+    * noun              -> Drive;
+
