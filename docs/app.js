@@ -3,6 +3,8 @@ import { Game, detectFormat } from './engine.js'
 import { CoPilot } from './agent.js'
 import { Speaker, Listener } from './voice.js'
 import { games, saveStoreFor, settings, persist } from './store.js'
+import { CATALOG } from './catalog.js'
+import { extractStory } from './unzip.js'
 
 const BUNDLED = [
   { id: 'bundled:lantern-hill', title: 'Lantern Hill', note: 'A 5-minute test game. Try it in the driveway.', url: 'games/lantern-hill.ulx' },
@@ -45,19 +47,40 @@ $('removeKey').onclick = () => {
 
 async function renderGames() {
   const stored = (await games.list().catch(() => [])).sort((a, b) => b.addedAt - a.addedAt)
+  const have = new Map(stored.map((g) => [g.id, g]))
+
+  // Featured games: Download until they're on the phone, then Play.
+  const cat = $('catalogList')
+  cat.textContent = ''
+  for (const c of CATALOG) cat.append(gameCard({ ...c, ...(have.get(c.id) ?? {}), note: c.blurb, catalog: c }, have.has(c.id)))
+  const missing = CATALOG.filter((c) => !have.has(c.id))
+  $('downloadAll').classList.toggle('hidden', missing.length === 0)
+  $('downloadAll').textContent = missing.length === CATALOG.length ? 'Download all three' : `Download the other ${missing.length === 1 ? 'one' : missing.length}`
+
   const list = $('gameList')
   list.textContent = ''
-  for (const g of [...stored, ...BUNDLED]) {
-    const card = document.createElement('div')
-    card.className = 'card game'
-    const info = document.createElement('div')
-    info.innerHTML = '<div class="title"></div><div class="meta"></div>'
-    info.querySelector('.title').textContent = g.title
-    info.querySelector('.meta').textContent = g.note ?? `${(g.bytes.byteLength / 1048576).toFixed(1)} MB story file`
-    card.append(info)
-    const btns = document.createElement('div')
-    btns.className = 'row'
-    btns.style.flex = '0 0 auto'
+  for (const g of stored.filter((g) => !g.id.startsWith('catalog:'))) list.append(gameCard(g, true))
+  for (const g of BUNDLED) list.append(gameCard(g, true))
+}
+
+function gameCard(g, ready) {
+  const card = document.createElement('div')
+  card.className = 'card game'
+  const info = document.createElement('div')
+  info.innerHTML = '<div class="title"></div><div class="meta"></div>'
+  info.querySelector('.title').textContent = g.catalog ? `${g.title}` : g.title
+  const meta = [g.catalog?.byline, g.note ?? (g.bytes ? `${(g.bytes.byteLength / 1048576).toFixed(1)} MB story file` : '')]
+  if (ready && g.bytes && g.catalog) meta.push(`Downloaded (${(g.bytes.byteLength / 1048576).toFixed(1)} MB)`)
+  info.querySelector('.meta').textContent = meta.filter(Boolean).join(' · ')
+  card.append(info)
+  const btns = document.createElement('div')
+  btns.className = 'row'
+  if (!ready) {
+    const dl = document.createElement('button')
+    dl.textContent = 'Download'
+    dl.onclick = () => downloadGames([g.catalog])
+    btns.append(dl)
+  } else {
     if (!g.url) {
       const del = document.createElement('button')
       del.textContent = 'Remove'
@@ -75,9 +98,75 @@ async function renderGames() {
     play.className = 'primary'
     play.onclick = () => openGame(g)
     btns.append(play)
-    card.append(btns)
-    list.append(card)
   }
+  card.append(btns)
+  return card
+}
+
+let downloading = false
+async function downloadGames(list) {
+  if (downloading) return
+  downloading = true
+  $('downloadAll').disabled = true
+  const msg = $('downloadMsg')
+  const failed = []
+  for (const c of list) {
+    try {
+      const bytes = await fetchWithProgress(c.download, (got, total) => {
+        msg.textContent = `Downloading ${c.title}… ${(got / 1048576).toFixed(1)}${total ? ` of ${(total / 1048576).toFixed(1)}` : ''} MB`
+      })
+      msg.textContent = `Unpacking ${c.title}…`
+      const story = await extractStory(bytes)
+      if (!detectFormat(story)) throw new Error('the download isn\'t a playable story file')
+      await games.put({ id: c.id, title: c.title, bytes: story, addedAt: Date.now() })
+      persist()
+    } catch (err) {
+      failed.push(c)
+      console.error(err)
+    }
+    await renderGames()
+  }
+  downloading = false
+  $('downloadAll').disabled = false
+  if (!failed.length) {
+    msg.textContent = list.length > 1 ? 'All set. Every game is on this phone.' : `${list[0].title} is ready.`
+  } else {
+    msg.innerHTML = ''
+    msg.append(`Couldn't download ${failed.map((c) => c.title).join(' and ')}. Check your connection and try again. If it keeps failing, get the story file from `)
+    failed.forEach((c, i) => {
+      const a = document.createElement('a')
+      a.href = c.ifdb; a.target = '_blank'; a.rel = 'noopener'; a.textContent = `${c.title} on IFDB`
+      if (i) msg.append(', ')
+      msg.append(a)
+    })
+    msg.append(' and add it with "Add another game file".')
+  }
+}
+
+async function fetchWithProgress(url, onProgress) {
+  const res = await fetch(url)
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
+  const total = Number(res.headers.get('content-length')) || 0
+  if (!res.body) return new Uint8Array(await res.arrayBuffer())
+  const reader = res.body.getReader()
+  const parts = []
+  let got = 0
+  for (;;) {
+    const { done, value } = await reader.read()
+    if (done) break
+    parts.push(value)
+    got += value.length
+    onProgress(got, total)
+  }
+  const out = new Uint8Array(got)
+  let o = 0
+  for (const p of parts) { out.set(p, o); o += p.length }
+  return out
+}
+
+$('downloadAll').onclick = async () => {
+  const have = new Set((await games.list().catch(() => [])).map((g) => g.id))
+  downloadGames(CATALOG.filter((c) => !have.has(c.id)))
 }
 
 $('addGame').onclick = () => $('filePicker').click()
@@ -85,9 +174,10 @@ $('filePicker').onchange = async (e) => {
   const file = e.target.files?.[0]
   e.target.value = ''
   if (!file) return
-  const bytes = new Uint8Array(await file.arrayBuffer())
+  let bytes = new Uint8Array(await file.arrayBuffer())
+  try { bytes = await extractStory(bytes) } catch {}
   if (!detectFormat(bytes)) {
-    alert('That file isn\'t a story file this app can run. Look for a file ending in .gblorb, .ulx, .zblorb, .z5 or .z8.')
+    alert('That file isn\'t a story file this app can run. Look for a file ending in .gblorb, .ulx, .zblorb, .z5 or .z8, or a .zip containing one.')
     return
   }
   await games.put({ id: `file:${file.name}:${file.size}`, title: titleFromFilename(file.name), bytes, addedAt: Date.now() })

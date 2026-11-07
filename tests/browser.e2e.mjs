@@ -9,6 +9,7 @@ import { readFile } from 'node:fs/promises'
 import { extname } from 'node:path'
 import { createRequire } from 'node:module'
 import assert from 'node:assert/strict'
+import { makeZip } from './zipfixture.mjs'
 
 const { chromium, devices } = createRequire(import.meta.url)('playwright')
 const root = new URL('../docs/', import.meta.url)
@@ -50,6 +51,20 @@ await page.route('https://api.anthropic.com/**', async (route) => {
   await route.fulfill({ status: res.status, headers: out, body: Buffer.from(await res.arrayBuffer()) })
 })
 
+// Stand-ins for the IF Archive downloads (the real files can't be fetched
+// from every test machine): a bare story file, a zip, and a web-player zip.
+const story = await readFile(new URL('games/lantern-hill.ulx', root))
+const fixtures = {
+  'CounterfeitMonkey.gblorb': story,
+  'Dr%20Ludwig%20and%20the%20Devil.zip': makeZip([['Dr Ludwig/ReadMe.txt', Buffer.from('readme')], ['Dr Ludwig/Dr Ludwig and the Devil.gblorb', story]]),
+  'THE_BAT.zip': makeZip([['THE BAT/play.html', Buffer.from('<html>')], ['THE BAT/interpreter/story.gblorb.js', Buffer.from(`GiLoad.load_run(null, '${story.toString('base64')}', 'base64');`)]]),
+}
+await page.route('https://ifarchive.org/**', (route) => {
+  const name = route.request().url().split('/').pop()
+  const body = fixtures[name]
+  return body ? route.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-length': String(body.length) }, body: Buffer.from(body) }) : route.fulfill({ status: 404 })
+})
+
 const key = process.env.ANTHROPIC_API_KEY
 try {
   await page.goto(base)
@@ -85,6 +100,22 @@ try {
   await page.click('.game:has-text("Lantern Hill") button:has-text("Play")')
   await page.waitForSelector('#orb:has-text("Tap to continue")', { timeout: 20000 })
   console.log('After reload the orb says "Tap to continue" (autosave found).')
+
+  // Featured games: download all three, then play one.
+  await page.click('#back')
+  await page.click('#downloadAll')
+  await page.waitForFunction(() => /All set/.test(document.querySelector('#downloadMsg').textContent), null, { timeout: 30000 })
+  const plays = await page.locator('#catalogList button:has-text("Play")').count()
+  assert.equal(plays, 3, 'all three featured games downloaded')
+  console.log('Downloaded all three featured games:', (await page.textContent('#catalogList')).replace(/\s+/g, ' ').slice(0, 300))
+  if (process.argv[2]) await page.screenshot({ path: process.argv[2].replace(/\.png$/, '-home.png'), fullPage: true })
+  await page.click('.game:has-text("THE BAT") button:has-text("Play")')
+  await page.waitForSelector('#orb:has-text("Tap to start")', { timeout: 20000 })
+  await turn('go north', /Hill Path|steep|stony/i)
+  await page.reload()
+  await page.click('.game:has-text("THE BAT") button:has-text("Play")')
+  await page.waitForSelector('#orb:has-text("Tap to continue")', { timeout: 20000 })
+  console.log('Downloaded game loads from the phone and keeps its own save.')
 
   if (process.argv[2]) await page.screenshot({ path: process.argv[2] })
   assert.deepEqual(errors.filter((e) => !/speech|favicon/i.test(e)), [], 'no page errors')

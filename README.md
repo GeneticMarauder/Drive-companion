@@ -24,14 +24,20 @@ A web app on your phone. You talk; Claude Haiku turns what you say into game com
 
 With the phone plugged in and Android Auto connected:
 
-1. Open the app, tap **Lantern Hill**, then tap the big circle.
+1. Open the app, tap **Play** on **Lantern Hill** (the 5-minute test game), then tap the big circle.
 2. Check you **hear the story through the car speakers**. If it plays from the phone instead, open the car's audio source / Android Auto media and pick the phone.
 3. Say "let's walk up the hill" and check that **it hears you** (the circle turns green while listening, and your words appear under it).
 4. Finish the 5-minute game. If that works, the real games will too.
 
-## Adding real games
+## The games
 
-The home screen has links to IFDB for good modern picks: **Counterfeit Monkey** (#1 on IFDB's all-time ranking, long enough for several driving days), **Dr Ludwig and the Devil** (2023 IFComp winner) and **THE BAT** (2024 IFComp winner). On a game's IFDB page, download the story file, then tap **Add a game file** in the app. Do this on Wi-Fi before you leave.
+All three are built in as **Featured games**. Tap **Download all three** once on Wi-Fi; after that they're stored on the phone and play with no signal.
+
+- **Counterfeit Monkey** (Emily Short, 2012): #1 on IFDB's all-time ranking, and long enough for several driving days.
+- **Dr Ludwig and the Devil** (SV Linwood, 2023): IFComp 2023 winner.
+- **THE BAT** (Chandler Groover, 2024): IFComp 2024 winner.
+
+Each game keeps its own save, so you can switch between them. The files come straight from the [IF Archive](https://ifarchive.org/). If a download ever fails, the app links to the game's IFDB page so you can grab the file and add it with **Add another game file**. That button also takes any other Glulx or Z-code game, zipped or not.
 
 ## Talking to it
 

@@ -88,7 +88,7 @@ Object Hilltop "Hilltop"
   has light;
 
 Object -> lantern "lantern"
-  with name 'lantern' 'lamp' 'light' 'post' 'iron',
+  with name 'lantern' 'lamp' 'light' 'post' 'iron' 'hatch' 'base' 'little' 'small',
     description [;
         if (brass_key has general) "The lantern burns steadily. Its little hatch hangs open.";
         "A brass ship's lantern burning without any visible fuel. There is a

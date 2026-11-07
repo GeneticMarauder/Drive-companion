@@ -1,8 +1,8 @@
 // Offline support: cache the app so it opens with no signal. Game files and
 // saves are in IndexedDB already. Bump VERSION whenever app files change.
-const VERSION = 'dc-v1'
+const VERSION = 'dc-v3'
 const FILES = [
-  './', 'index.html', 'app.js', 'engine.js', 'agent.js', 'voice.js', 'store.js',
+  './', 'index.html', 'app.js', 'engine.js', 'agent.js', 'voice.js', 'store.js', 'catalog.js', 'unzip.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
   'vendor/anthropic-sdk.js', 'vendor/emglken/git.js', 'vendor/emglken/git.wasm',
   'vendor/emglken/bocfel.js', 'vendor/emglken/bocfel.wasm', 'games/lantern-hill.ulx',

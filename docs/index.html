@@ -44,7 +44,9 @@
     background: var(--bg); color: var(--text); min-height: 52px;
   }
   label { display: block; font-weight: 600; margin: 12px 0 6px; }
-  .game { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .game { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+  .game > div:first-child { flex: 1 1 240px; }
+  .game > .row { flex: 0 0 auto; margin-left: auto; }
   .game .title { font-weight: 700; }
   .game .meta { color: var(--muted); font-size: .85rem; }
   .game button { flex: 0 0 auto; }
@@ -102,22 +104,19 @@
       </div>
     </div>
 
-    <h2>Your games</h2>
+    <h2>Featured games</h2>
+    <p class="muted">Download these once on Wi-Fi. After that they're stored on this phone and play without a signal.</p>
+    <div id="catalogList"></div>
+    <div class="row"><button id="downloadAll" class="primary">Download all three</button></div>
+    <p class="muted" id="downloadMsg" aria-live="polite"></p>
+
+    <h2>More games</h2>
     <div id="gameList"></div>
     <div class="row">
-      <button id="addGame">Add a game file</button>
+      <button id="addGame">Add another game file</button>
       <input id="filePicker" type="file" class="hidden">
     </div>
-
-    <h2>Good modern picks</h2>
-    <div class="card">
-      <ul class="recs">
-        <li><a href="https://ifdb.org/search?searchfor=Counterfeit+Monkey" target="_blank" rel="noopener">Counterfeit Monkey</a> (2012): #1 on IFDB's all-time ranking. It's long, so it suits several driving days.</li>
-        <li><a href="https://ifdb.org/search?searchfor=Dr+Ludwig+and+the+Devil" target="_blank" rel="noopener">Dr Ludwig and the Devil</a> (2023): IFComp winner.</li>
-        <li><a href="https://ifdb.org/search?searchfor=THE+BAT+Chandler+Groover" target="_blank" rel="noopener">THE BAT</a> (2024): IFComp winner.</li>
-      </ul>
-      <p class="muted">On the game's IFDB page, download the story file (ending in .gblorb, .ulx, .zblorb, .z5 or .z8), then tap <b>Add a game file</b>. Games that only play in a web page won't work here.</p>
-    </div>
+    <p class="muted">Any Glulx or Z-code story file works: .gblorb, .ulx, .zblorb, .z5, .z8, or a .zip containing one.</p>
 
     <h2>Voice</h2>
     <div class="card">
