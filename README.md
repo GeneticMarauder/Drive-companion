@@ -55,6 +55,8 @@ These work instantly, without using the AI:
 
 Tap the circle to skip what it's reading, or to pause.
 
+The story also scrolls on screen like a normal text adventure: game text, the commands the co-pilot typed (`> open door`), and its own remarks. It's saved with each game, so it's still there when you come back. **Aa** changes the text size.
+
 ## Cost and battery
 
 - **Cost:** about **$0.0003 per turn**, which is roughly **50 cents for an 11-hour day** (measured in testing on Claude Haiku 5.5). It's billed to your API account, separately from any Claude subscription. The screen shows the running cost.

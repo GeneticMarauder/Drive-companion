@@ -116,6 +116,11 @@ try {
   await page.click('.game:has-text("THE BAT") button:has-text("Play")')
   await page.waitForSelector('#orb:has-text("Tap to continue")', { timeout: 20000 })
   console.log('Downloaded game loads from the phone and keeps its own save.')
+  const kept = await page.locator('#story .entry.game').count()
+  assert.ok(kept >= 1, 'story text is still on screen after reopening')
+  console.log(`Story view kept ${kept} game passages after reload.`)
+  await page.click('#orb')
+  await page.waitForSelector('#story .entry.note:has-text("Continuing")', { timeout: 20000 })
 
   if (process.argv[2]) await page.screenshot({ path: process.argv[2] })
   assert.deepEqual(errors.filter((e) => !/speech|favicon/i.test(e)), [], 'no page errors')

@@ -1,6 +1,6 @@
 // Offline support: cache the app so it opens with no signal. Game files and
 // saves are in IndexedDB already. Bump VERSION whenever app files change.
-const VERSION = 'dc-v4'
+const VERSION = 'dc-v5'
 const FILES = [
   './', 'index.html', 'app.js', 'engine.js', 'agent.js', 'voice.js', 'store.js', 'catalog.js', 'unzip.js',
   'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',

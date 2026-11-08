@@ -55,6 +55,8 @@ export const settings = {
   set rate(v) { safeSet('dc.rate', String(v)) },
   get voice() { return safeGet('dc.voice') || '' },
   set voice(v) { safeSet('dc.voice', v || null) },
+  get textSize() { const raw = safeGet('dc.textSize'); const v = Number(raw); return raw !== null && Number.isInteger(v) && v >= 0 && v <= 3 ? v : 1 },
+  set textSize(v) { safeSet('dc.textSize', String(v)) },
   get totalCost() { return Number(safeGet('dc.totalCost')) || 0 },
   set totalCost(v) { safeSet('dc.totalCost', String(v)) },
 }

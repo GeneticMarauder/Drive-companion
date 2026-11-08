@@ -54,30 +54,55 @@
   ul.recs li { margin: 8px 0; }
 
   /* Play screen */
-  #play { display: flex; flex-direction: column; min-height: calc(100dvh - 40px); }
+  main.playing { max-width: 720px; padding-top: 8px; padding-bottom: 0; }
+  #play { display: flex; flex-direction: column; height: 100dvh; margin: -8px 0 0; padding-top: 8px; }
   .topbar { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
   .topbar button { min-height: 44px; padding: 8px 14px; }
+  .topbar .right { display: flex; align-items: center; gap: 10px; }
+  .status-line { font-size: .85rem; color: var(--muted); text-align: center; margin: 6px 0; font-variant-numeric: tabular-nums; }
+
+  #story {
+    flex: 1; overflow-y: auto; padding: 4px 2px 16px; --story-size: 1.1rem;
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", Palatino, serif; font-size: var(--story-size); line-height: 1.6;
+    border-top: 1px solid var(--line);
+  }
+  #story[data-size="0"] { --story-size: 1rem; }
+  #story[data-size="2"] { --story-size: 1.3rem; }
+  #story[data-size="3"] { --story-size: 1.55rem; }
+  .entry { margin: 14px 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .entry.game { color: var(--text); }
+  .entry .room { font-family: system-ui, sans-serif; font-size: 1.05em; letter-spacing: .01em; }
+  .entry.cmd { font: 600 calc(var(--story-size) * .9)/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--accent); margin-bottom: -6px; }
+  .entry.you { font: italic calc(var(--story-size) * .8)/1.4 system-ui, sans-serif; color: var(--muted); margin-top: 22px; margin-bottom: 4px; }
+  .entry.pilot { font: calc(var(--story-size) * .88)/1.5 system-ui, sans-serif; color: var(--muted); border-left: 3px solid var(--think); padding-left: 10px; }
+  .entry.note { font: calc(var(--story-size) * .8)/1.4 system-ui, sans-serif; color: var(--muted); text-align: center; }
+  .entry.note.bad { color: var(--bad); }
+
+  .dock { border-top: 1px solid var(--line); padding: 10px 0 calc(10px + env(safe-area-inset-bottom)); background: var(--bg); }
+  .dock-row { display: flex; gap: 12px; align-items: center; }
+  .dock-side { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; }
+  .dock-side .row { flex-wrap: nowrap; }
+  .dock-side button { min-height: 48px; padding: 8px 10px; }
   #orb {
-    margin: 20px auto 12px; width: min(62vw, 260px); aspect-ratio: 1; border-radius: 50%;
-    border: 6px solid var(--pause); display: flex; align-items: center; justify-content: center; text-align: center;
-    font-size: 1.4rem; font-weight: 800; letter-spacing: .02em; cursor: pointer; user-select: none;
+    flex: 0 0 auto; width: 108px; height: 108px; border-radius: 50%;
+    border: 5px solid var(--pause); display: flex; align-items: center; justify-content: center; text-align: center;
+    font-size: .95rem; line-height: 1.2; font-weight: 800; cursor: pointer; user-select: none; white-space: pre-line;
     background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--pause) 22%, transparent), transparent 70%);
     transition: border-color .2s, background .2s;
   }
+  #orb[data-state="idle"] { border-color: var(--accent); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 70%); }
   #orb[data-state="listening"] { border-color: var(--listen); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--listen) 28%, transparent), transparent 70%); animation: pulse 1.6s ease-in-out infinite; }
   #orb[data-state="thinking"] { border-color: var(--think); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--think) 28%, transparent), transparent 70%); }
   #orb[data-state="speaking"] { border-color: var(--speak); background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--speak) 28%, transparent), transparent 70%); }
   #orb[data-state="error"] { border-color: var(--bad); }
-  @keyframes pulse { 50% { transform: scale(1.03); } }
+  @keyframes pulse { 50% { transform: scale(1.04); } }
   @media (prefers-reduced-motion: reduce) { #orb { animation: none !important; } }
-  #heard { text-align: center; color: var(--muted); min-height: 1.5em; font-style: italic; }
-  #said { font-size: 1.15rem; white-space: pre-wrap; flex: 1; overflow-y: auto; max-height: 38dvh; }
-  .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
-  #typed { margin-top: 10px; }
-  details { margin-top: 12px; }
-  summary { cursor: pointer; color: var(--muted); font-weight: 600; min-height: 44px; display: flex; align-items: center; }
-  #log { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: var(--muted); max-height: 40dvh; overflow-y: auto; }
-  .status-line { font-size: .85rem; color: var(--muted); text-align: center; }
+  #heard { color: var(--muted); font-style: italic; font-size: .9rem; min-height: 1.3em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #typedForm { margin-top: 10px; }
+  #typed { min-height: 46px; padding: 10px 14px; }
+  details.more summary { cursor: pointer; color: var(--muted); font-weight: 600; min-height: 40px; display: flex; align-items: center; font-size: .9rem; }
+  #log { font: 13px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre-wrap; color: var(--muted); max-height: 30dvh; overflow-y: auto; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>
 </head>
 <body>
@@ -137,24 +162,34 @@
   <section id="play" class="hidden">
     <div class="topbar">
       <button id="back">‹ Games</button>
-      <span class="muted" id="cost"></span>
+      <div class="right">
+        <span class="muted" id="cost"></span>
+        <button id="sizeBtn" aria-label="Change text size">Aa</button>
+      </div>
     </div>
     <div class="status-line" id="statusLine"></div>
-    <div id="orb" role="button" tabindex="0" data-state="idle">Tap to start</div>
-    <div id="heard" aria-live="polite"></div>
-    <div id="said" aria-live="polite"></div>
-    <div class="controls">
-      <button id="pauseBtn">Pause</button>
-      <button id="repeatBtn">Repeat</button>
+    <div id="story"></div>
+    <div id="said" class="sr-only" aria-live="polite"></div>
+    <div class="dock">
+      <div class="dock-row">
+        <div id="orb" role="button" tabindex="0" data-state="idle">Tap to start</div>
+        <div class="dock-side">
+          <div id="heard" aria-live="polite"></div>
+          <div class="row">
+            <button id="pauseBtn">Pause</button>
+            <button id="repeatBtn">Repeat</button>
+          </div>
+        </div>
+      </div>
+      <form id="typedForm" class="row" autocomplete="off">
+        <input id="typed" type="text" placeholder="Or type a command (for passengers)" enterkeyhint="send">
+      </form>
+      <details class="more">
+        <summary>More</summary>
+        <div id="log"></div>
+        <div class="row" style="margin-top:10px"><button id="newGame" class="danger">Start this game over</button></div>
+      </details>
     </div>
-    <form id="typedForm" class="row" autocomplete="off">
-      <input id="typed" type="text" placeholder="Or type to the co-pilot (for passengers)" enterkeyhint="send">
-    </form>
-    <details>
-      <summary>Game log</summary>
-      <div id="log"></div>
-      <div class="row" style="margin-top:10px"><button id="newGame" class="danger">Start this game over</button></div>
-    </details>
   </section>
 
 </main>

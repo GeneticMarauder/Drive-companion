@@ -19,6 +19,7 @@ const state = {
   meta: null, game: null, pilot: null,
   running: false, paused: false, loopId: 0,
   lastSpoken: '', wakeLock: null, busy: Promise.resolve(), costSeen: 0,
+  story: [], // [{k: 'game'|'cmd'|'you'|'pilot'|'note', t: text}]
 }
 
 // ---------- Home screen ----------
@@ -230,14 +231,19 @@ async function openGame(meta) {
   $('log').textContent = ''
   $('said').textContent = ''
   $('heard').textContent = ''
+  document.querySelector('main').classList.add('playing')
   setOrb('idle', 'Loading…')
   state.meta = meta
+  state.story = []
+  $('story').textContent = ''
+  const saved = await saveStoreFor(meta.id).get('story').catch(() => null)
+  if (Array.isArray(saved)) for (const e of saved) addStory(e.k, e.t, { save: false })
   try {
     const bytes = meta.url ? new Uint8Array(await (await fetch(meta.url)).arrayBuffer()) : meta.bytes
     state.game = await Game.start(bytes, { saveStore: saveStoreFor(meta.id) })
   } catch (err) {
     setOrb('error', 'Could not load')
-    $('said').textContent = `This game failed to start: ${err.message}`
+    addStory('note', `This game failed to start: ${err.message}`, { bad: true, save: false })
     return
   }
   const key = settings.apiKey
@@ -247,7 +253,8 @@ async function openGame(meta) {
   updateStatus()
   updateCost()
   setOrb('idle', state.game.hasSave ? 'Tap to continue' : 'Tap to start')
-  if (!client) $('said').textContent = 'No API key saved, so your words go straight to the game. Add a key on the home screen for the full co-pilot.'
+  if (!state.story.length) addStory('note', 'Tap the circle to start. The story will appear here as it\'s read aloud.', { save: false, temp: true })
+  if (!client) addStory('note', 'No API key saved, so your words go straight to the game. Add a key on the home screen for the full co-pilot.', { save: false })
 }
 
 async function start() {
@@ -263,11 +270,12 @@ async function start() {
       await g.restore()
       const { text } = await g.send('look')
       state.pilot.note('Restored the saved game. The driver heard', text)
-      addLog(`[restored]\n${text}`)
+      addStory('note', '— Continuing where you left off —')
+      addStory('game', text)
       await speak(`Welcome back to ${state.meta.title}. ${text}`)
     } else {
       state.pilot.note('Game opening, read aloud to the driver', g.intro)
-      addLog(g.intro)
+      addStory('game', g.intro)
       await speak(g.intro)
     }
     updateStatus()
@@ -289,7 +297,7 @@ async function loop(id) {
       if (err.code === 'not-allowed' || err.code === 'service-not-allowed') {
         stopRunning()
         setOrb('error', 'Mic blocked')
-        $('said').textContent = 'Microphone access is blocked. In Chrome, tap the icon left of the address, allow the microphone, then tap the circle again.'
+        addStory('note', 'Microphone access is blocked. In Chrome, tap the icon left of the address, allow the microphone, then tap the circle again.', { bad: true, save: false })
         return
       }
       failures++
@@ -325,11 +333,11 @@ async function handleUtterance(text) {
   const norm = text.toLowerCase().replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim()
 
   if (state.paused) {
-    if (RE.resume.test(norm)) { setPaused(false); await speak('Okay, back in the game.') }
+    if (RE.resume.test(norm)) { setPaused(false); addStory('note', 'Resumed'); await speak('Okay, back in the game.') }
     return
   }
   if (RE.repeat.test(norm)) return speak(state.lastSpoken || 'Nothing to repeat yet.')
-  if (RE.pause.test(norm)) { setPaused(true); return speak('Paused. Say resume when you\'re ready.') }
+  if (RE.pause.test(norm)) { setPaused(true); addStory('note', 'Paused'); return speak('Paused. Say resume when you\'re ready.') }
   if (RE.slower.test(norm) || RE.faster.test(norm)) {
     speaker.rate = Math.min(1.6, Math.max(0.7, speaker.rate + (RE.slower.test(norm) ? -0.15 : 0.15)))
     settings.rate = speaker.rate
@@ -344,6 +352,14 @@ async function handleUtterance(text) {
   const r = await state.pilot.handle(text)
   updateCost()
   updateStatus()
+  if (r.speak || r.commands.length) {
+    addStory('you', `You: “${text}”`)
+    for (const c of r.commands) {
+      addStory('cmd', `> ${c.command}`)
+      addStory('game', c.output)
+    }
+    if (r.speak && addsSomething(r.speak, r.commands)) addStory('pilot', r.speak)
+  }
   const saving = r.commands.length ? state.game.autosave().catch(() => false) : null
   if (r.speak) await speak(r.speak)
   else $('heard').textContent = `(ignored) “${text}”`
@@ -398,6 +414,56 @@ function addLog(text) {
   log.scrollTop = log.scrollHeight
 }
 
+// ---------- Story view ----------
+
+function addStory(kind, text, { save = true, bad = false, temp = false } = {}) {
+  text = String(text ?? '').trim()
+  if (!text) return
+  const box = $('story')
+  box.querySelector('.entry.temp')?.remove()
+  const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 160
+  const div = document.createElement('div')
+  div.className = `entry ${kind}${bad ? ' bad' : ''}${temp ? ' temp' : ''}`
+  // Show a room name (a short first line without end punctuation) as a heading.
+  const [first, ...rest] = text.split('\n')
+  if (kind === 'game' && rest.length && first.length < 60 && !/[.!?:,"')\]]$/.test(first.trim())) {
+    const h = document.createElement('strong')
+    h.className = 'room'
+    h.textContent = first
+    div.append(h, '\n' + rest.join('\n'))
+  } else {
+    div.textContent = text
+  }
+  box.append(div)
+  while (box.childElementCount > 600) box.firstElementChild.remove()
+  if (nearBottom || kind === 'you' || kind === 'note') div.scrollIntoView({ block: kind === 'game' ? 'nearest' : 'end' })
+  if (!save) return
+  state.story.push({ k: kind, t: text })
+  if (state.story.length > 400) state.story = state.story.slice(-300)
+  saveStory()
+}
+
+// Saved right away (IndexedDB writes are cheap and stay in order), so the
+// story survives even if the app is closed straight after a turn.
+function saveStory() {
+  const id = state.meta?.id
+  if (id) saveStoreFor(id).set('story', state.story.slice()).catch(() => {})
+}
+
+// Show the co-pilot's words on screen only when they add something beyond
+// the game text already shown (answers, hints, "I tried but...").
+function addsSomething(spoken, commands) {
+  if (!commands.length) return true
+  const seen = new Set(commands.map((c) => c.output).join(' ').toLowerCase().match(/[a-z']{4,}/g) ?? [])
+  const words = spoken.toLowerCase().match(/[a-z']{4,}/g) ?? []
+  if (!words.length) return false
+  const novel = words.filter((w) => !seen.has(w)).length / words.length
+  return novel > 0.3
+}
+
+function applyTextSize() { $('story').dataset.size = String(settings.textSize) }
+$('sizeBtn').onclick = () => { settings.textSize = (settings.textSize + 1) % 4; applyTextSize() }
+
 // Keep the screen on while playing: Chrome stops listening if the phone sleeps.
 async function keepAwake() {
   try {
@@ -436,6 +502,7 @@ $('back').onclick = () => {
   state.game = null
   $('play').classList.add('hidden')
   $('home').classList.remove('hidden')
+  document.querySelector('main').classList.remove('playing')
   renderKey()
   renderGames()
 }
@@ -458,6 +525,7 @@ $('newGame').onclick = async () => {
     history.replaceState(null, '', location.pathname + location.search)
   }
 }
+applyTextSize()
 renderKey()
 renderGames()
 renderVoices()
