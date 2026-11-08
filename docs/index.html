@@ -145,8 +145,31 @@
 
     <h2>Voice</h2>
     <div class="card">
-      <label for="voiceSelect">Reading voice</label>
-      <select id="voiceSelect"></select>
+      <label for="narratorMode">Narrator</label>
+      <select id="narratorMode">
+        <option value="premium">Documentary narrator (OpenAI voice)</option>
+        <option value="phone">Phone's built-in voice (free)</option>
+      </select>
+      <div id="premiumBox">
+        <div id="oaMissing">
+          <label for="oaKey">OpenAI API key</label>
+          <input id="oaKey" type="password" autocomplete="off" spellcheck="false" placeholder="sk-...">
+          <p class="muted">Create one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>. About 1.5¢ per minute of narration. Saved only on this phone. Without a signal it uses the phone's voice.</p>
+          <div class="row"><button class="primary" id="saveOa">Save OpenAI key</button></div>
+        </div>
+        <div id="oaPresent" class="hidden">
+          <div class="row">
+            <span>OpenAI key saved <span class="muted" id="oaHint"></span></span>
+            <button id="removeOa" class="danger" style="flex:0 0 auto">Remove</button>
+          </div>
+        </div>
+        <label for="narratorVoice">Narrator voice</label>
+        <select id="narratorVoice"></select>
+      </div>
+      <div id="phoneBox">
+        <label for="voiceSelect">Phone voice</label>
+        <select id="voiceSelect"></select>
+      </div>
       <label for="rateSelect">Reading speed</label>
       <select id="rateSelect">
         <option value="0.85">Slower</option>
@@ -154,6 +177,7 @@
         <option value="1.15">Faster</option>
         <option value="1.3">Fastest</option>
       </select>
+      <div class="row" style="margin-top:14px"><button id="testVoice">▶ Test the voice</button></div>
     </div>
     <p class="muted" id="support"></p>
   </section>

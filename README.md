@@ -57,6 +57,16 @@ Tap the circle to skip what it's reading, or to pause.
 
 The story also scrolls on screen like a normal text adventure: game text, the commands the co-pilot typed (`> open door`), and its own remarks. It's saved with each game, so it's still there when you come back. **Aa** changes the text size.
 
+## The narrator voice
+
+By default the story is read by a **documentary-style narrator**: OpenAI's voice model, told to sound like a warm, hushed, unhurried British nature-documentary narrator. (It's a style, not an imitation of any real person.)
+
+1. Create an OpenAI API key at https://platform.openai.com/api-keys (add a few dollars of credit and set a monthly limit).
+2. In the app's **Voice** section, paste it into **OpenAI API key**, tap **Save OpenAI key**, and you'll hear a sample.
+3. Choose a **Narrator voice**. Fable, the British one, is the default.
+
+It costs about **1.5¢ per minute of narration**, roughly $2–4 for a long day of play, and the screen's cost counter includes it. With no signal, or if the key stops working, it switches to the phone's built-in voice automatically. Choose **Phone's built-in voice (free)** to turn it off.
+
 ## Cost and battery
 
 - **Cost:** about **$0.0003 per turn**, which is roughly **50 cents for an 11-hour day** (measured in testing on Claude Haiku 5.5). It's billed to your API account, separately from any Claude subscription. The screen shows the running cost.

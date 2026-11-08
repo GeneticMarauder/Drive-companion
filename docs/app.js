@@ -2,6 +2,7 @@ import Anthropic from './vendor/anthropic-sdk.js'
 import { Game, detectFormat } from './engine.js'
 import { CoPilot } from './agent.js'
 import { Speaker, Listener } from './voice.js'
+import { Narrator, NARRATOR_VOICES } from './narrator.js'
 import { games, saveStoreFor, settings, persist } from './store.js'
 import { CATALOG } from './catalog.js'
 import { extractStory } from './unzip.js'
@@ -14,11 +15,18 @@ const $ = (id) => document.getElementById(id)
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 const speaker = new Speaker()
 const listener = new Listener()
+const narrator = new Narrator({
+  fallback: speaker,
+  getKey: () => (settings.narrator === 'premium' ? settings.openaiKey : ''),
+  getVoice: () => settings.narratorVoice,
+  onCost: (usd) => { state.voiceCost += usd; settings.totalCost += usd; updateCost() },
+  log: (m) => addLog(m),
+})
 
 const state = {
   meta: null, game: null, pilot: null,
   running: false, paused: false, loopId: 0,
-  lastSpoken: '', wakeLock: null, busy: Promise.resolve(), costSeen: 0,
+  lastSpoken: '', wakeLock: null, busy: Promise.resolve(), costSeen: 0, voiceCost: 0,
   story: [], // [{k: 'game'|'cmd'|'you'|'pilot'|'note', t: text}]
 }
 
@@ -204,17 +212,48 @@ $('voiceSelect').onchange = (e) => {
   settings.voice = e.target.value
   speaker.voiceName = e.target.value || null
   speaker.unlock()
-  speaker.say('This is how I will sound.')
+  speaker.say('This is how the phone voice sounds.')
 }
 $('rateSelect').value = String(settings.rate)
 speaker.rate = settings.rate
 $('rateSelect').onchange = (e) => {
   settings.rate = Number(e.target.value)
   speaker.rate = settings.rate
-  speaker.unlock()
-  speaker.say('This is how fast I will read.')
+  testVoice()
 }
 globalThis.speechSynthesis?.addEventListener?.('voiceschanged', renderVoices)
+
+function renderNarrator() {
+  const mode = settings.narrator
+  $('narratorMode').value = mode
+  $('premiumBox').classList.toggle('hidden', mode !== 'premium')
+  $('phoneBox').classList.toggle('hidden', mode === 'premium')
+  const k = settings.openaiKey
+  $('oaMissing').classList.toggle('hidden', !!k)
+  $('oaPresent').classList.toggle('hidden', !k)
+  $('oaHint').textContent = k ? `(…${k.slice(-4)})` : ''
+  const sel = $('narratorVoice')
+  if (!sel.options.length) for (const v of NARRATOR_VOICES) sel.append(new Option(v.label, v.id))
+  sel.value = settings.narratorVoice
+}
+$('narratorMode').onchange = (e) => { settings.narrator = e.target.value; renderNarrator() }
+$('narratorVoice').onchange = (e) => { settings.narratorVoice = e.target.value; testVoice() }
+$('saveOa').onclick = () => {
+  const v = $('oaKey').value.trim()
+  if (!/^sk-/.test(v)) { alert('That doesn\'t look like an OpenAI key. It should start with sk-.'); return }
+  settings.openaiKey = v
+  $('oaKey').value = ''
+  renderNarrator()
+  testVoice()
+}
+$('removeOa').onclick = () => {
+  if (confirm('Remove the OpenAI key from this phone? The phone\'s built-in voice will be used instead.')) { settings.openaiKey = ''; renderNarrator() }
+}
+$('testVoice').onclick = () => testVoice()
+function testVoice() {
+  narrator.unlock()
+  narrator.say('The road stretches westward, and somewhere ahead, a story is waiting. Shall we begin?')
+}
 
 function renderSupport() {
   const problems = []
@@ -250,6 +289,7 @@ async function openGame(meta) {
   const client = key ? new Anthropic({ apiKey: key, dangerouslyAllowBrowser: true, maxRetries: 1, timeout: 30000 }) : null
   state.pilot = new CoPilot({ client, game: state.game, title: meta.title, log: addLog })
   state.costSeen = 0
+  state.voiceCost = 0
   updateStatus()
   updateCost()
   setOrb('idle', state.game.hasSave ? 'Tap to continue' : 'Tap to start')
@@ -258,7 +298,7 @@ async function openGame(meta) {
 }
 
 async function start() {
-  speaker.unlock()
+  narrator.unlock()
   state.running = true
   state.paused = false
   const id = ++state.loopId
@@ -339,12 +379,12 @@ async function handleUtterance(text) {
   if (RE.repeat.test(norm)) return speak(state.lastSpoken || 'Nothing to repeat yet.')
   if (RE.pause.test(norm)) { setPaused(true); addStory('note', 'Paused'); return speak('Paused. Say resume when you\'re ready.') }
   if (RE.slower.test(norm) || RE.faster.test(norm)) {
-    speaker.rate = Math.min(1.6, Math.max(0.7, speaker.rate + (RE.slower.test(norm) ? -0.15 : 0.15)))
-    settings.rate = speaker.rate
+    narrator.rate = Math.min(1.6, Math.max(0.7, narrator.rate + (RE.slower.test(norm) ? -0.15 : 0.15)))
+    settings.rate = narrator.rate
     return speak(RE.slower.test(norm) ? 'Okay, I\'ll read slower.' : 'Okay, I\'ll read faster.')
   }
   if (RE.cost.test(norm)) {
-    const c = state.pilot.costUSD * 100
+    const c = (state.pilot.costUSD + state.voiceCost) * 100
     return speak(`This session has cost about ${c < 1 ? 'less than one cent' : `${Math.round(c)} cents`}.`)
   }
 
@@ -364,6 +404,8 @@ async function handleUtterance(text) {
   if (r.speak) await speak(r.speak)
   else $('heard').textContent = `(ignored) “${text}”`
   await saving
+  // Typed turns can happen before the voice loop starts; don't leave the circle stuck.
+  if (!state.running) setOrb('idle', state.game?.hasSave ? 'Tap to continue' : 'Tap to start')
 }
 
 async function speak(text) {
@@ -372,7 +414,7 @@ async function speak(text) {
   $('said').textContent = text
   listener.stop()
   setOrb('speaking')
-  await speaker.say(text)
+  await narrator.say(text)
 }
 
 function setPaused(p) {
@@ -385,7 +427,7 @@ function stopRunning() {
   state.running = false
   state.loopId++
   listener.stop()
-  speaker.stop()
+  narrator.stop()
   state.wakeLock?.release?.().catch(() => {})
   state.wakeLock = null
 }
@@ -404,7 +446,8 @@ function updateCost() {
   const c = state.pilot?.costUSD ?? 0
   settings.totalCost += c - state.costSeen
   state.costSeen = c
-  $('cost').textContent = state.pilot?.client ? `$${c.toFixed(3)} this session` : 'Direct mode'
+  const total = c + state.voiceCost
+  $('cost').textContent = state.pilot?.client || state.voiceCost ? `$${total.toFixed(3)} this session` : 'Direct mode'
 }
 
 function addLog(text) {
@@ -481,19 +524,19 @@ $('orb').onclick = () => {
   const s = $('orb').dataset.state
   if (!state.game) return
   if (!state.running) return start()
-  if (s === 'speaking') return speaker.stop()
+  if (s === 'speaking') return narrator.stop()
   if (s === 'paused') return setPaused(false)
   if (s === 'listening') return setPaused(true)
 }
 $('orb').onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('orb').click() } }
 $('pauseBtn').onclick = () => { if (state.running) setPaused(!state.paused) }
-$('repeatBtn').onclick = () => { speaker.unlock(); exclusive(() => speak(state.lastSpoken || 'Nothing to repeat yet.')) }
+$('repeatBtn').onclick = () => { narrator.unlock(); exclusive(() => speak(state.lastSpoken || 'Nothing to repeat yet.')) }
 $('typedForm').onsubmit = (e) => {
   e.preventDefault()
   const text = $('typed').value.trim()
   if (!text || !state.pilot) return
   $('typed').value = ''
-  speaker.unlock()
+  narrator.unlock()
   listener.stop()
   exclusive(() => handleUtterance(text))
 }
@@ -526,8 +569,12 @@ $('newGame').onclick = async () => {
   }
 }
 applyTextSize()
+renderNarrator()
 renderKey()
 renderGames()
 renderVoices()
 renderSupport()
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {})
+
+// Debug handle for troubleshooting from the browser console.
+globalThis.driveCompanion = { narrator, state }
